@@ -40,10 +40,10 @@ SEA = (length = 256, derivedCryptKeyAlgorithm = 'AES-GCM') => {
     pair = async () => {
         let 
         signPair = await windowCryptoSubtle.generateKey(signKeyParams, keyExtractable, usage_sign),
-        derivePair = await windowCryptoSubtle.generateKey(deriveKeyParams, keyExtractable, usage_derive),
-        _soul = '~' + await exportKey(signPair.publicKey)
+        derivePair = await windowCryptoSubtle.generateKey(deriveKeyParams, keyExtractable, usage_derive)
+        //_soul = '~' + await exportKey(signPair.publicKey)
         return { 
-            _soul, 
+            soul: '~' + await exportKey(signPair.publicKey), 
             pub: signPair.publicKey, 
             priv: signPair.privateKey, 
             epub: derivePair.publicKey, 
@@ -89,6 +89,8 @@ SEA = (length = 256, derivedCryptKeyAlgorithm = 'AES-GCM') => {
      * @param {CryptoKey} foreignPub - Public encryption key of recipient
      * @param {CryptoKey} ownPriv - Private encryption key of sender
      * @return {yptoKey} Secret to use for de-/encryption
+     * 
+     * @todo Passphrase based encryption? https://developer.mozilla.org/en-US/docs/Web/API/SubtleCrypto/deriveKey#pbkdf2_2
      */
     secret = async (foreignPub, ownPriv) => {
         //console.log("SECRET", deriveKeyParams.name)
@@ -107,6 +109,9 @@ SEA = (length = 256, derivedCryptKeyAlgorithm = 'AES-GCM') => {
      * @param {String} data - Message to encrypt
      * @param {CryptoKey} derivedKey - Secret to use for encryption
      * @return {String} Stringified encData + iv
+     * 
+     * @todo Object instead of stringified?
+     * @todo 1:n encryption with password based shared secret key?
      */
     encrypt = async (data, derivedKey) => {
         let 
@@ -184,7 +189,7 @@ SEA = (length = 256, derivedCryptKeyAlgorithm = 'AES-GCM') => {
      */
     backup = async (pairs) => {
         let exportedPairs = {}
-        delete pairs._soul
+        delete pairs.soul
         for (const [seaUse, cryptoKey] of Object.entries(pairs)) {
             //console.log('BACKUP', seaUse, cryptoKey)
             exportedPairs[seaUse] = await exportKey(cryptoKey, seaUse)
@@ -203,7 +208,7 @@ SEA = (length = 256, derivedCryptKeyAlgorithm = 'AES-GCM') => {
         for (const [seaUse, exportedKey] of Object.entries(exportedPairs)) {
             //console.log('RESTORE', seaUse, exportedKey)
             if(seaUse == 'pub') {
-                importedPairs._soul = '~' + exportedKey
+                importedPairs.soul = '~' + exportedKey
             }
             importedPairs[seaUse] = await importKey(exportedKey, seaUse)
         }
