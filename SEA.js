@@ -17,7 +17,7 @@ SEA = (length = 256, derivedCryptKeyAlgorithm = 'AES-GCM') => {
         epriv: ['jwk', deriveKeyParams, keyExtractable, usage_derive]
     },
     // shorthands
-    windowCryptoSubtle = window.crypto.subtle,
+    cryptoSubtle = crypto.subtle,
     // convert Object <=> Base64
     objToBase64 = (obj) => btoa(JSON.stringify(obj)),
     base64ToObj = (base64obj) => JSON.parse(atob(base64obj)),
@@ -39,8 +39,8 @@ SEA = (length = 256, derivedCryptKeyAlgorithm = 'AES-GCM') => {
      */
     pair = async () => {
         let 
-        signPair = await windowCryptoSubtle.generateKey(signKeyParams, keyExtractable, usage_sign),
-        derivePair = await windowCryptoSubtle.generateKey(deriveKeyParams, keyExtractable, usage_derive)
+        signPair = await cryptoSubtle.generateKey(signKeyParams, keyExtractable, usage_sign),
+        derivePair = await cryptoSubtle.generateKey(deriveKeyParams, keyExtractable, usage_derive)
         //_soul = '~' + await exportKey(signPair.publicKey)
         return { 
             soul: '~' + await exportKey(signPair.publicKey), 
@@ -59,7 +59,7 @@ SEA = (length = 256, derivedCryptKeyAlgorithm = 'AES-GCM') => {
      * @return {String} Base64 encoded signature
      */
     sign = async (data, priv) => {
-        return arrayBufferToBase64(await windowCryptoSubtle.sign(
+        return arrayBufferToBase64(await cryptoSubtle.sign(
             signAlgorithm, 
             priv, 
             textEncode(data)
@@ -75,7 +75,7 @@ SEA = (length = 256, derivedCryptKeyAlgorithm = 'AES-GCM') => {
      * @return {Boolean} Signature verification result
      */
     verify = async (data, signedData, pub) => {
-        return await windowCryptoSubtle.verify(
+        return await cryptoSubtle.verify(
             signAlgorithm, 
             pub, 
             base64ToArrayBuffer(signedData), 
@@ -94,7 +94,7 @@ SEA = (length = 256, derivedCryptKeyAlgorithm = 'AES-GCM') => {
      */
     secret = async (foreignPub, ownPriv) => {
         //console.log("SECRET", deriveKeyParams.name)
-        return await windowCryptoSubtle.deriveKey(
+        return await cryptoSubtle.deriveKey(
             { name: deriveKeyParams.name, public: foreignPub }, 
             ownPriv, 
             { ...cryptAlgorithm, length: length }, 
@@ -115,9 +115,9 @@ SEA = (length = 256, derivedCryptKeyAlgorithm = 'AES-GCM') => {
      */
     encrypt = async (data, derivedKey) => {
         let 
-        iv = window.crypto.getRandomValues(new Uint8Array(12)),
+        iv = crypto.getRandomValues(new Uint8Array(12)),
         preparedData = textEncode(data),
-        encData = await windowCryptoSubtle.encrypt(
+        encData = await cryptoSubtle.encrypt(
             { ...cryptAlgorithm, iv }, 
             derivedKey, 
             preparedData
@@ -142,7 +142,7 @@ SEA = (length = 256, derivedCryptKeyAlgorithm = 'AES-GCM') => {
         parsedData = JSON.parse(encDataIn),
         decodedData = base64ToArrayBuffer(parsedData.enc),
         decodedIV = base64ToUint8Array(parsedData.iv),
-        decrytedData = await windowCryptoSubtle.decrypt(
+        decrytedData = await cryptoSubtle.decrypt(
             { ...cryptAlgorithm, iv: decodedIV }, 
             derivedKey, 
             decodedData
@@ -161,7 +161,7 @@ SEA = (length = 256, derivedCryptKeyAlgorithm = 'AES-GCM') => {
         let 
         type = importKeyParams[seaUse][0],
         convertMethod = (type == 'raw') ? arrayBufferToBase64 : objToBase64
-        return convertMethod(await windowCryptoSubtle.exportKey(type, cryptoKey))
+        return convertMethod(await cryptoSubtle.exportKey(type, cryptoKey))
     },
    
     /**
@@ -175,7 +175,7 @@ SEA = (length = 256, derivedCryptKeyAlgorithm = 'AES-GCM') => {
         let 
         type = importKeyParams[seaUse][0],
         convertMethod = (type == 'raw') ? base64ToArrayBuffer : base64ToObj
-        return await windowCryptoSubtle.importKey(
+        return await cryptoSubtle.importKey(
         type, 
         convertMethod(base64key), 
         ...importKeyParams[seaUse].slice(1)
