@@ -33,7 +33,7 @@ SEA = (length = 256, derivedCryptKeyAlgorithm = 'AES-GCM') => {
 
     /**
      * Generate sea user key pairs
-     * { _soul: "~<pub>, pub, priv, epub, epriv }
+     * { pub, priv, epub, epriv }
      * 
      * @return {Object} sea user key pairs 
      */
@@ -43,7 +43,7 @@ SEA = (length = 256, derivedCryptKeyAlgorithm = 'AES-GCM') => {
         derivePair = await cryptoSubtle.generateKey(deriveKeyParams, keyExtractable, usage_derive)
         //_soul = '~' + await exportKey(signPair.publicKey)
         return { 
-            soul: '~' + await exportKey(signPair.publicKey), 
+            //soul: '~' + await exportKey(signPair.publicKey), 
             pub: signPair.publicKey, 
             priv: signPair.privateKey, 
             epub: derivePair.publicKey, 
@@ -189,7 +189,7 @@ SEA = (length = 256, derivedCryptKeyAlgorithm = 'AES-GCM') => {
      */
     backup = async (pairs) => {
         let exportedPairs = {}
-        delete pairs.soul
+        //delete pairs.soul
         for (const [seaUse, cryptoKey] of Object.entries(pairs)) {
             //console.log('BACKUP', seaUse, cryptoKey)
             exportedPairs[seaUse] = await exportKey(cryptoKey, seaUse)
@@ -207,9 +207,9 @@ SEA = (length = 256, derivedCryptKeyAlgorithm = 'AES-GCM') => {
         let importedPairs = {}
         for (const [seaUse, exportedKey] of Object.entries(exportedPairs)) {
             //console.log('RESTORE', seaUse, exportedKey)
-            if(seaUse == 'pub') {
+            /*if(seaUse == 'pub') {
                 importedPairs.soul = '~' + exportedKey
-            }
+            }*/
             importedPairs[seaUse] = await importKey(exportedKey, seaUse)
         }
         return importedPairs
