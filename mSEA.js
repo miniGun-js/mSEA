@@ -1,5 +1,8 @@
+/**
+ * Minimal Web Crypto API wrapper inspirend by GunDB SEA
+ */
 const 
-SEA = (length = 256, derivedCryptKeyAlgorithm = 'AES-GCM') => {
+mSEA = ((length = 256, derivedCryptKeyAlgorithm = 'AES-GCM') => {
     const
     // crypto api settings for sign / verify, deriveKey and de-/encrypt  
     signKeyParams = { name: 'ECDSA', namedCurve: `P-${length}` },
@@ -216,4 +219,4 @@ SEA = (length = 256, derivedCryptKeyAlgorithm = 'AES-GCM') => {
     }
     // expose public methods
     return { pair, sign, verify, secret, encrypt, decrypt, exportKey, importKey, backup, restore }
-}
+})()
