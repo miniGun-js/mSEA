@@ -2,25 +2,32 @@
 
 Usage (console example)
 ```
-sea = SEA()
+// create key pairs and export / import
+p1 = await mSEA.pair();
+p2 = await mSEA.pair();
+bkp = await mSEA.backup(p1);
+restored = await mSEA.restore(bkp);
+console.log("BACKUP KEYPAIR", bkp);
 
-// create users
-user1 = await sea.pair()
-user2 = await sea.pair()
+// plain text to sign / crypt
+text = " Message to secure...";
 
-// encrypt & decrypt
-secret_user1 = await sea.secret(user2.epub, user1.epriv)
-enc = await sea.encrypt("Test...", secret_user1)
+// password based CryptoKey (1:n base...)
+shared1 = await mSEA.secret("mySavePassword"); // password based secret with string input
+sharedEnc = await mSEA.encrypt(text, shared1);
+shared2 = await mSEA.secret("mySavePassword"); // password based secret with string input
+sharedDec = await mSEA.decrypt(sharedEnc, shared2);
+console.log("ENCRYPTION SHARED SECRET", sharedEnc, sharedDec);
 
-secret_user2 = await sea.secret(user1.epub, user2.epriv)
-await = sea.decrypt(enc, secret_user2
+// pub / priv crypto 1:1
+secret1 = await mSEA.secret(p2.epub, p1.epriv);
+secret2 = await mSEA.secret(p1.epub, p2.epriv);
+enc = await mSEA.encrypt(text, secret1);
+dec = await mSEA.decrypt(enc, secret2);
+console.log("ENCRYPTION 1:1 SECRET", enc, dec);
 
-// sign &  verify
-msg = "Data to sign"
-sig = await sea.sign(msg, user1.priv)
-await sea.verify(msg, sig, user1.pub)
-
-// backup and restore pair
-backup = await sea.backup(user1)
-restoredPair = await sea.restore(backup)
+// Sign & verify
+sig = await mSEA.sign(text, p1.priv);
+verified = await mSEA.verify(text, sig, p1.pub)
+console.log("SIGNING", sig, `\nSignature matching: ${verified}`);
 ```
