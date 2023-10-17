@@ -1,39 +1,64 @@
 /**
  * Minimal Web Crypto API wrapper inspirend by GunDB SEA
+ * 
  */
 const 
-mSEA = ((length = 256, derivedCryptKeyAlgorithm = 'AES-GCM') => {
+mSEA = (() => {
     const
     // crypto api settings for sign / verify, deriveKey and de-/encrypt  
+    signKeyParams = { 
+        name: 'RSASSA-PKCS1-v1_5', 
+        modulusLength: 2048, 
+        publicExponent: new Uint8Array([1, 0, 1]),
+        hash: "SHA-256", 
+    },
+    signAlgorithm = signKeyParams.name,
+    //signAlgorithm = { name: signKeyParams.name, hash: { name: "SHA-512" }},
+    /*
     signKeyParams = { name: 'ECDSA', namedCurve: `P-${length}` },
-    signAlgorithm = { name: signKeyParams.name, hash: { name: `SHA-${length}` }},
+    signAlgorithm = { name: signKeyParams.name, hash: { name: "SHA-1" }},   // PHP fails with SHA-256 !!!   
+    */
+    // https://www.php.net/manual/en/function.openssl-get-md-methods.php
+    // https://stackoverflow.com/questions/32991501/how-to-verify-ecdsa-with-sha256-signature-with-php
     usage_sign = ['sign', 'verify'],
-    deriveKeyParams = { name: 'ECDH', namedCurve: `P-${length}` },
+    deriveKeyParams = { name: 'ECDH', namedCurve: "P-256" },
     usage_derive = ['deriveKey'],
-    cryptAlgorithm = { name: derivedCryptKeyAlgorithm },
+    cryptAlgorithm = { name: 'AES-GCM', length: '256' },
     usage_crypt = ['encrypt', 'decrypt'],
     keyExtractable = true,
-    importKeyParams = { 
-        pub: ['raw', signKeyParams, keyExtractable, [usage_sign[1]]],
-        priv: ['jwk', signKeyParams, keyExtractable, [usage_sign[0]]],
-        epub: ['raw', deriveKeyParams, keyExtractable, []],
-        epriv: ['jwk', deriveKeyParams, keyExtractable, usage_derive]
-    },
-    // shorthands
+    // shorthand
     cryptoSubtle = crypto.subtle,
-    // convert Object <=> Base64
-    objToBase64 = (obj) => btoa(JSON.stringify(obj)),
-    base64ToObj = (base64obj) => JSON.parse(atob(base64obj)),
-    // convert Uint8Array <=> Base64
-    uint8ArrayToBase64 = (uint8ArrayInput) => btoa(String.fromCharCode.apply(null, uint8ArrayInput)),
-    base64ToUint8Array = (base64String) => new Uint8Array([...atob(base64String)].map(c=>c.charCodeAt())),
-    // convert ArrayBuffer <=> Base64
-    arrayBufferToBase64 = (buffer) => uint8ArrayToBase64(new Uint8Array(buffer)),
-    base64ToArrayBuffer = (base64String) => base64ToUint8Array(base64String).buffer,
-    // Text De-/Encoder
-    textEncode = (data) => new TextEncoder().encode(data),
-    textDecode = (data) => new TextDecoder().decode(data),
-
+    // convert helpers    
+    StringToUint8Array = (string) => Uint8Array.from([...string].map(ch => ch.charCodeAt())),
+    Uint8ToArrayBuffer = (uint8array) => uint8array.buffer,
+    StringToArrayBuffer = (string) => Uint8ToArrayBuffer(StringToUint8Array(string)),
+    ArrayBufferToUint8Array = (arrayBuff) => new Uint8Array(arrayBuff),
+    ArrayBufferToString = (arrayBuff) => Uint8ToString(ArrayBufferToUint8Array(arrayBuff)),
+    Uint8ToString = (uint8array) => String.fromCharCode.apply(null, uint8array),
+    ObjectToJson = (object) => JSON.stringify(object),
+    JsonToObject = (string) => JSON.parse(string),
+    StringToBase64 = (string) => btoa(string),
+    Base64ToString = (base64) => atob(base64),
+    ArrayBufferToBase64 = (arrayBuff) => StringToBase64(ArrayBufferToString(arrayBuff)),
+    Base64ToArrayBuffer = (base64) => StringToArrayBuffer(Base64ToString(base64)),
+    ObjectToBase64 = (object) => StringToBase64(ObjectToJson(object)),
+    Base64ToObject = (base64) => JsonToObject(Base64ToString(base64)),
+    // import and export options
+    tranferKeyParams = { 
+        pub: { type: 'spki', exp: ArrayBufferToBase64, imp: Base64ToArrayBuffer, opt: [ signKeyParams, keyExtractable, [usage_sign[1]] ] },
+        priv: { type: 'jwk', exp: ObjectToBase64, imp: Base64ToObject, opt: [ signKeyParams, keyExtractable, [usage_sign[0]] ] },
+        epub: { type: 'spki', exp: ArrayBufferToBase64, imp: Base64ToArrayBuffer, opt: [ deriveKeyParams, keyExtractable, [] ] },
+        epriv: { type: 'jwk', exp: ObjectToBase64, imp: Base64ToObject, opt: [ deriveKeyParams, keyExtractable, usage_derive ] }
+    },
+    // Passphrase based CryptoKey
+    passphraseKeyParams = {
+        name: "PBKDF2",
+        salt: StringToUint8Array("SaltString..."),
+        iterations: 1000,
+        hash: "SHA-256"
+    },
+    passphraseKeyParamName = { name: "PBKDF2" },
+    
     /**
      * Generate sea user key pairs
      * { pub, priv, epub, epriv }
@@ -44,9 +69,7 @@ mSEA = ((length = 256, derivedCryptKeyAlgorithm = 'AES-GCM') => {
         let 
         signPair = await cryptoSubtle.generateKey(signKeyParams, keyExtractable, usage_sign),
         derivePair = await cryptoSubtle.generateKey(deriveKeyParams, keyExtractable, usage_derive)
-        //_soul = '~' + await exportKey(signPair.publicKey)
         return { 
-            //soul: '~' + await exportKey(signPair.publicKey), 
             pub: signPair.publicKey, 
             priv: signPair.privateKey, 
             epub: derivePair.publicKey, 
@@ -62,11 +85,11 @@ mSEA = ((length = 256, derivedCryptKeyAlgorithm = 'AES-GCM') => {
      * @return {String} Base64 encoded signature
      */
     sign = async (data, priv) => {
-        return arrayBufferToBase64(await cryptoSubtle.sign(
+        return StringToBase64(ArrayBufferToString(await cryptoSubtle.sign(
             signAlgorithm, 
             priv, 
-            textEncode(data)
-        ))
+            StringToArrayBuffer(data)
+        )))
     },
 
     /**
@@ -81,27 +104,55 @@ mSEA = ((length = 256, derivedCryptKeyAlgorithm = 'AES-GCM') => {
         return await cryptoSubtle.verify(
             signAlgorithm, 
             pub, 
-            base64ToArrayBuffer(signedData), 
-            textEncode(data)
+            StringToArrayBuffer(Base64ToString(signedData)), 
+            StringToArrayBuffer(data)
+        )
+    },
+
+    /**
+     * Create a password based CryptoKey for 1:n encryption
+     * 
+     * @param {String} password Password String
+     * @return {CryptoKey} Password based secret for de-/encryption
+     * 
+     * @todo Remove hardcoded params (salt, iterations, ...)
+     * 
+     * shared secret from password:
+     * - https://medium.com/@lina.cloud/password-based-client-side-crypto-6fbe4b389bac
+     */
+    passphraseBasedSecret = async (password) => {
+        return await cryptoSubtle.deriveKey(
+            passphraseKeyParams,
+            await cryptoSubtle.importKey(
+                'raw',
+                StringToUint8Array(password),
+                passphraseKeyParamName,
+                false, // not extractable...
+                usage_derive
+            ),
+            cryptAlgorithm,
+            keyExtractable,
+            usage_crypt
         )
     },
 
     /**
      * Create a secret for de-/encryption
      * 
-     * @param {CryptoKey} foreignPub - Public encryption key of recipient
+     * @param {CryptoKey|String} foreignPub - Public encryption key of recipient OR password string
      * @param {CryptoKey} ownPriv - Private encryption key of sender
      * @return {yptoKey} Secret to use for de-/encryption
-     * 
-     * @todo Passphrase based encryption? https://developer.mozilla.org/en-US/docs/Web/API/SubtleCrypto/deriveKey#pbkdf2_2
      */
     secret = async (foreignPub, ownPriv) => {
         //console.log("SECRET", deriveKeyParams.name)
+        if(!ownPriv, typeof foreignPub === 'string') {
+            return await passphraseBasedSecret(foreignPub)
+        }
         return await cryptoSubtle.deriveKey(
             { name: deriveKeyParams.name, public: foreignPub }, 
             ownPriv, 
-            { ...cryptAlgorithm, length: length }, 
-            true, 
+            cryptAlgorithm, 
+            keyExtractable, 
             usage_crypt
         )
     },
@@ -114,20 +165,20 @@ mSEA = ((length = 256, derivedCryptKeyAlgorithm = 'AES-GCM') => {
      * @return {String} Stringified encData + iv
      * 
      * @todo Object instead of stringified?
-     * @todo 1:n encryption with password based shared secret key?
      */
     encrypt = async (data, derivedKey) => {
         let 
         iv = crypto.getRandomValues(new Uint8Array(12)),
-        preparedData = textEncode(data),
         encData = await cryptoSubtle.encrypt(
             { ...cryptAlgorithm, iv }, 
             derivedKey, 
-            preparedData
+            StringToUint8Array(data)
         ),
-        package = JSON.stringify({
-            enc: arrayBufferToBase64(encData), 
-            iv: uint8ArrayToBase64(iv)
+        package = ObjectToJson({
+            enc: StringToBase64(ArrayBufferToString(encData)), 
+            //enc: ArrayBufferToString(encData), 
+            iv: StringToBase64(Uint8ToString(iv))
+            //iv: Uint8ToString(iv)
         })
         //console.log("package stringify", package)
         return package
@@ -142,15 +193,16 @@ mSEA = ((length = 256, derivedCryptKeyAlgorithm = 'AES-GCM') => {
      */
     decrypt = async (encDataIn, derivedKey) => {
         let 
-        parsedData = JSON.parse(encDataIn),
-        decodedData = base64ToArrayBuffer(parsedData.enc),
-        decodedIV = base64ToUint8Array(parsedData.iv),
+        parsedData = JsonToObject(encDataIn),
+        decodedIV = StringToUint8Array(Base64ToString(parsedData.iv)),
+        //decodedIV = StringToUint8Array(parsedData.iv),
         decrytedData = await cryptoSubtle.decrypt(
             { ...cryptAlgorithm, iv: decodedIV }, 
             derivedKey, 
-            decodedData
+            StringToUint8Array(Base64ToString(parsedData.enc))
+            //StringToUint8Array(parsedData.enc)
         )
-        return textDecode(decrytedData)
+        return Uint8ToString(decrytedData)
     },
 
     /**
@@ -160,12 +212,12 @@ mSEA = ((length = 256, derivedCryptKeyAlgorithm = 'AES-GCM') => {
      * @param {String} seaUse - One of pub, priv, epub or epriv
      * @return {String} Base64 encoded and exported CryptoKey
      */
-    exportKey = async (cryptoKey, seaUse = 'pub') => {
-        let 
-        type = importKeyParams[seaUse][0],
-        convertMethod = (type == 'raw') ? arrayBufferToBase64 : objToBase64
-        return convertMethod(await cryptoSubtle.exportKey(type, cryptoKey))
-    },
+    exportKey = async (cryptoKey, seaUse = 'pub') => tranferKeyParams[seaUse].exp(
+        await cryptoSubtle.exportKey(
+            tranferKeyParams[seaUse].type, 
+            cryptoKey
+        )
+    ),
    
     /**
      * Import CryptoKey
@@ -174,15 +226,11 @@ mSEA = ((length = 256, derivedCryptKeyAlgorithm = 'AES-GCM') => {
      * @param {String} seaUse - One of pub, priv, epub or epriv
      * @return {CryptoKey} Imported CryptoKey
      */
-    importKey = async (base64key, seaUse = 'pub') => {
-        let 
-        type = importKeyParams[seaUse][0],
-        convertMethod = (type == 'raw') ? base64ToArrayBuffer : base64ToObj
-        return await cryptoSubtle.importKey(
-        type, 
-        convertMethod(base64key), 
-        ...importKeyParams[seaUse].slice(1)
-    )}, 
+    importKey = async (base64key, seaUse = 'pub') => await cryptoSubtle.importKey(
+        tranferKeyParams[seaUse].type, 
+        tranferKeyParams[seaUse].imp(base64key), 
+        ...tranferKeyParams[seaUse].opt
+    ),
 
     /**
      * Backup full sea user pairs
@@ -192,7 +240,6 @@ mSEA = ((length = 256, derivedCryptKeyAlgorithm = 'AES-GCM') => {
      */
     backup = async (pairs) => {
         let exportedPairs = {}
-        //delete pairs.soul
         for (const [seaUse, cryptoKey] of Object.entries(pairs)) {
             //console.log('BACKUP', seaUse, cryptoKey)
             exportedPairs[seaUse] = await exportKey(cryptoKey, seaUse)
@@ -210,13 +257,11 @@ mSEA = ((length = 256, derivedCryptKeyAlgorithm = 'AES-GCM') => {
         let importedPairs = {}
         for (const [seaUse, exportedKey] of Object.entries(exportedPairs)) {
             //console.log('RESTORE', seaUse, exportedKey)
-            /*if(seaUse == 'pub') {
-                importedPairs.soul = '~' + exportedKey
-            }*/
             importedPairs[seaUse] = await importKey(exportedKey, seaUse)
         }
         return importedPairs
     }
+
     // expose public methods
     return { pair, sign, verify, secret, encrypt, decrypt, exportKey, importKey, backup, restore }
 })()
