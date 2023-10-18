@@ -175,12 +175,9 @@ mSEA = (() => {
             StringToUint8Array(data)
         ),
         package = ObjectToJson({
-            enc: StringToBase64(ArrayBufferToString(encData)), 
-            //enc: ArrayBufferToString(encData), 
+            enc: ArrayBufferToBase64(encData),  
             iv: StringToBase64(Uint8ToString(iv))
-            //iv: Uint8ToString(iv)
         })
-        //console.log("package stringify", package)
         return package
     },
 
@@ -195,14 +192,12 @@ mSEA = (() => {
         let 
         parsedData = JsonToObject(encDataIn),
         decodedIV = StringToUint8Array(Base64ToString(parsedData.iv)),
-        //decodedIV = StringToUint8Array(parsedData.iv),
         decrytedData = await cryptoSubtle.decrypt(
             { ...cryptAlgorithm, iv: decodedIV }, 
             derivedKey, 
-            StringToUint8Array(Base64ToString(parsedData.enc))
-            //StringToUint8Array(parsedData.enc)
+            Base64ToArrayBuffer(parsedData.enc)
         )
-        return Uint8ToString(decrytedData)
+        return ArrayBufferToString(decrytedData)
     },
 
     /**
